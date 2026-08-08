@@ -36,8 +36,10 @@ import {
   EXTRA_LIFE_START,
   EXTRA_LIFE_EVERY,
   SAVE_PLATFORM_WIDTH,
+  RECOVERY_PLATFORM_GAP,
   PLATFORM_DURABLE_START,
   PLATFORM_WEAK_START,
+  ORANGE_IN_WEAK_ZONE,
 } from '../const.js';
 
 const CLOUD_COUNT = 8;
@@ -325,9 +327,10 @@ export default class GameScene extends Phaser.Scene {
     x = Phaser.Math.Clamp(x, width / 2 + 10, GAME_WIDTH - width / 2 - 10);
     this.lastX = x;
 
-    const plat = this.platforms.create(x, y, this.ensurePlatformTexture(this.platformColorFor(height), width));
+    const { color, uses } = this.platformTypeFor(height);
+    const plat = this.platforms.create(x, y, this.ensurePlatformTexture(color, width));
     plat.setDepth(2);
-    plat.uses = this.platformUsesFor(height);
+    plat.uses = uses;
     plat.platformWidth = width;
     plat.body.setBounceX(1);
     return plat;
@@ -338,24 +341,18 @@ export default class GameScene extends Phaser.Scene {
     return Math.round(Phaser.Math.Between(PLATFORM_MIN_WIDTH, PLATFORM_MAX_WIDTH) / 5) * 5;
   }
 
-  platformColorFor(height) {
+  // Green = infinite uses, orange = 2 uses, red = 1 use. Once the weak zone
+  // begins, platforms mix between orange and red.
+  platformTypeFor(height) {
     if (height >= PLATFORM_WEAK_START) {
-      return 'red';
+      return Math.random() < ORANGE_IN_WEAK_ZONE
+        ? { color: 'yellow', uses: 2 }
+        : { color: 'red', uses: 1 };
     }
     if (height >= PLATFORM_DURABLE_START) {
-      return 'yellow';
+      return { color: 'yellow', uses: 2 };
     }
-    return 'green';
-  }
-
-  platformUsesFor(height) {
-    if (height >= PLATFORM_WEAK_START) {
-      return 1;
-    }
-    if (height >= PLATFORM_DURABLE_START) {
-      return 2;
-    }
-    return Infinity;
+    return { color: 'green', uses: Infinity };
   }
 
   spawnNextRow() {
@@ -486,10 +483,29 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  // When the extra life is used (player is about to fall off the screen),
+  // drops a ladder of green platforms from the bottom to the top of the
+  // current screen so the player can easily recover.
+  spawnRecoveryLadder() {
+    const x = Phaser.Math.Clamp(
+      this.player.x,
+      PLATFORM_WIDTH / 2 + 10,
+      GAME_WIDTH - PLATFORM_WIDTH / 2 - 10
+    );
+    for (let y = this.camY + GAME_HEIGHT - 40; y > this.camY + 40; y -= RECOVERY_PLATFORM_GAP) {
+      const plat = this.platforms.create(x, y, this.ensurePlatformTexture('green', PLATFORM_WIDTH));
+      plat.setDepth(2);
+      plat.uses = Infinity;
+      plat.platformWidth = PLATFORM_WIDTH;
+      plat.body.setBounceX(1);
+    }
+  }
+
   // Spawns a green mini platform under the falling player to save them.
   savePlayer() {
     this.extraLives -= 1;
     this.updateLifeHud();
+    this.spawnRecoveryLadder();
 
     const player = this.player;
     const platY = player.y + PLAYER_RADIUS + PLATFORM_HEIGHT / 2 + 2;
@@ -629,7 +645,10 @@ export default class GameScene extends Phaser.Scene {
     }
 
     const bottom = this.camY + GAME_HEIGHT;
-    if (this.extraLives > 0 && player.y > bottom - PLAYER_RADIUS) {
+    // Only save while the player is actually falling: after the bounce the
+    // upward velocity prevents the save from re-triggering, so one fall
+    // spends exactly one extra life.
+    if (this.extraLives > 0 && player.body.velocity.y > 0 && player.y > bottom - PLAYER_RADIUS) {
       this.savePlayer();
     } else if (player.y > bottom + DEATH_MARGIN) {
       this.dead = true;

@@ -34,8 +34,8 @@ export const MOVING_PLATFORM_MAX_SPEED = 220;
 export const MOVING_SPEED_JITTER = 0.3; // random +/-30% so platforms don't all match speed
 
 export const OBSTACLE_START = 10000; // 1000 m
-export const OBSTACLE_BASE_CHANCE = 0.35;
-export const OBSTACLE_MAX_CHANCE = 0.65;
+export const OBSTACLE_BASE_CHANCE = 0.22;
+export const OBSTACLE_MAX_CHANCE = 0.45;
 export const OBSTACLE_RADIUS = 16;
 
 // Powerups. Spawn distances are in px climbed (score shows px / 10 as meters).
@@ -46,7 +46,7 @@ export const SHIELD_START = OBSTACLE_START; // 1000 m
 export const SHIELD_EVERY = 2500; // one shield per 250 m
 
 export const SUPER_JUMP_START = 0; // available from the start
-export const SUPER_JUMP_EVERY = 6000; // one super jump per 600 m
+export const SUPER_JUMP_EVERY = 4500; // one super jump per 450 m
 export const SUPER_JUMP_MULTIPLIER = 10; // x10 the base jump height
 export const SUPER_JUMP_HEIGHT = MAX_JUMP_HEIGHT * SUPER_JUMP_MULTIPLIER;
 export const SUPER_JUMP_VELOCITY = Math.round(Math.sqrt(2 * GRAVITY_Y * SUPER_JUMP_HEIGHT));
@@ -55,10 +55,12 @@ export const EXTRA_LIFE_START = 0; // available from the start
 export const EXTRA_LIFE_EVERY = 10000; // one extra life per 1000 m
 
 export const SAVE_PLATFORM_WIDTH = 55; // green mini platform spawned to save the player
+export const RECOVERY_PLATFORM_GAP = 120; // vertical spacing of the extra-life green recovery ladder
 
 // Platform durability (uses counted per landing/touch).
 export const PLATFORM_DURABLE_START = 8000; // 800 m: 2 touches (yellow -> red -> gone)
 export const PLATFORM_WEAK_START = 13000; // 1300 m: 1 touch (red -> gone)
+export const ORANGE_IN_WEAK_ZONE = 0.5; // chance a 2-use orange platform appears once reds start
 
 export const PLAYER_SCREEN_Y = 260;
 export const DEATH_MARGIN = 40;
