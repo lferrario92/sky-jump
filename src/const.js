@@ -38,6 +38,24 @@ export const OBSTACLE_BASE_CHANCE = 0.35;
 export const OBSTACLE_MAX_CHANCE = 0.65;
 export const OBSTACLE_RADIUS = 16;
 
+// Powerups. Spawn distances are in px climbed (score shows px / 10 as meters).
+export const POWERUP_RADIUS = 14;
+export const POWERUP_FLOAT = 35; // floats this many px above its platform
+
+export const SHIELD_START = OBSTACLE_START; // 1000 m
+export const SHIELD_EVERY = 2500; // one shield per 250 m
+
+export const SUPER_JUMP_START = 0; // available from the start
+export const SUPER_JUMP_EVERY = 6000; // one super jump per 600 m
+export const SUPER_JUMP_MULTIPLIER = 10; // x10 the base jump height
+export const SUPER_JUMP_HEIGHT = MAX_JUMP_HEIGHT * SUPER_JUMP_MULTIPLIER;
+export const SUPER_JUMP_VELOCITY = Math.round(Math.sqrt(2 * GRAVITY_Y * SUPER_JUMP_HEIGHT));
+
+export const EXTRA_LIFE_START = 0; // available from the start
+export const EXTRA_LIFE_EVERY = 10000; // one extra life per 1000 m
+
+export const SAVE_PLATFORM_WIDTH = 55; // green mini platform spawned to save the player
+
 // Platform durability (uses counted per landing/touch).
 export const PLATFORM_DURABLE_START = 8000; // 800 m: 2 touches (yellow -> red -> gone)
 export const PLATFORM_WEAK_START = 13000; // 1300 m: 1 touch (red -> gone)

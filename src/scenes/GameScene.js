@@ -26,6 +26,16 @@ import {
   OBSTACLE_BASE_CHANCE,
   OBSTACLE_MAX_CHANCE,
   OBSTACLE_RADIUS,
+  POWERUP_RADIUS,
+  POWERUP_FLOAT,
+  SHIELD_START,
+  SHIELD_EVERY,
+  SUPER_JUMP_START,
+  SUPER_JUMP_EVERY,
+  SUPER_JUMP_VELOCITY,
+  EXTRA_LIFE_START,
+  EXTRA_LIFE_EVERY,
+  SAVE_PLATFORM_WIDTH,
   PLATFORM_DURABLE_START,
   PLATFORM_WEAK_START,
 } from '../const.js';
@@ -70,6 +80,15 @@ export default class GameScene extends Phaser.Scene {
     startPlat.body.setBounceX(1);
 
     this.bombs = this.physics.add.staticGroup();
+    this.powerups = this.physics.add.staticGroup();
+
+    this.shield = 0;
+    this.superJumpActive = false;
+    this.extraLives = 0;
+    this.nextShieldAt = SHIELD_START;
+    this.nextSuperJumpAt = SUPER_JUMP_START;
+    this.nextExtraLifeAt = EXTRA_LIFE_START;
+    this.defaultMaxVY = 1500;
 
     // Rows above the start platform, always closer than the jump height.
     this.spawnCursor = this.startY;
@@ -89,6 +108,7 @@ export default class GameScene extends Phaser.Scene {
     this.player.body.setMaxVelocity(MOVE_SPEED, 1500);
     this.physics.add.collider(this.player, this.platforms, this.onPlatform, this.canLandOnTop, this);
     this.physics.add.overlap(this.player, this.bombs, this.onBomb, null, this);
+    this.physics.add.overlap(this.player, this.powerups, this.onPowerup, null, this);
 
     this.cameras.main.setScroll(0, this.camY);
 
@@ -114,6 +134,57 @@ export default class GameScene extends Phaser.Scene {
       .setStroke('#1b4d6b', 4)
       .setDepth(10)
       .setScrollFactor(0);
+
+    this.shieldHud = this.add
+      .image(w - 34, 36, 'powerupShield')
+      .setScrollFactor(0)
+      .setDepth(10)
+      .setVisible(false);
+    this.shieldCountText = this.add
+      .text(w - 50, 28, '', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '14px',
+        fontStyle: 'bold',
+        color: '#ffffff',
+      })
+      .setStroke('#1b4d6b', 4)
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(10)
+      .setVisible(false);
+
+    this.lifeHud = this.add
+      .image(w - 34, 72, 'powerupLife')
+      .setScrollFactor(0)
+      .setDepth(10)
+      .setVisible(false);
+    this.lifeCountText = this.add
+      .text(w - 50, 64, '', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '14px',
+        fontStyle: 'bold',
+        color: '#ffffff',
+      })
+      .setStroke('#1b4d6b', 4)
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(10)
+      .setVisible(false);
+
+    this.flashText = this.add
+      .text(w / 2, h / 2, '', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '34px',
+        fontStyle: 'bold',
+        color: '#ffe066',
+      })
+      .setOrigin(0.5)
+      .setStroke('#7a4f00', 6)
+      .setDepth(11)
+      .setVisible(false);
+
+    this.shieldAura = this.add.image(0, 0, 'auraShield').setAlpha(0.5).setScale(1.6).setDepth(2.5).setVisible(false);
+    this.superAura = this.add.image(0, 0, 'auraJump').setAlpha(0.6).setScale(2.2).setDepth(2.5).setVisible(false);
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.input.addPointer(1);
@@ -148,6 +219,57 @@ export default class GameScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 0.7);
     g.fillCircle(r + 5, r - 4, 3);
     g.generateTexture('bomb', r * 2, r * 2);
+
+    const pr = POWERUP_RADIUS;
+    g.clear();
+    g.fillStyle(0x1e88e5, 1);
+    g.fillCircle(pr, pr, pr - 1);
+    g.lineStyle(2, 0xffffff, 1);
+    g.strokeCircle(pr, pr, pr - 1);
+    g.fillStyle(0xffffff, 1);
+    g.fillPoints(
+      [
+        new Phaser.Geom.Point(pr, pr - pr * 0.55),
+        new Phaser.Geom.Point(pr - pr * 0.42, pr - pr * 0.1),
+        new Phaser.Geom.Point(pr - pr * 0.2, pr + pr * 0.35),
+        new Phaser.Geom.Point(pr, pr + pr * 0.55),
+        new Phaser.Geom.Point(pr + pr * 0.2, pr + pr * 0.35),
+        new Phaser.Geom.Point(pr + pr * 0.42, pr - pr * 0.1),
+      ],
+      true
+    );
+    g.generateTexture('powerupShield', pr * 2, pr * 2);
+
+    g.clear();
+    g.fillStyle(0xf57c00, 1);
+    g.fillCircle(pr, pr, pr - 1);
+    g.lineStyle(2, 0xffffff, 1);
+    g.strokeCircle(pr, pr, pr - 1);
+    g.fillStyle(0xffffff, 1);
+    g.fillTriangle(pr, pr - pr * 0.55, pr - pr * 0.5, pr + pr * 0.1, pr + pr * 0.5, pr + pr * 0.1);
+    g.fillRect(pr - pr * 0.16, pr + pr * 0.1, pr * 0.32, pr * 0.5);
+    g.generateTexture('powerupJump', pr * 2, pr * 2);
+
+    g.clear();
+    g.fillStyle(0x43a047, 1);
+    g.fillCircle(pr, pr, pr - 1);
+    g.lineStyle(2, 0xffffff, 1);
+    g.strokeCircle(pr, pr, pr - 1);
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(pr - pr * 0.28, pr - pr * 0.15, pr * 0.3);
+    g.fillCircle(pr + pr * 0.28, pr - pr * 0.15, pr * 0.3);
+    g.fillTriangle(pr - pr * 0.52, pr - pr * 0.05, pr + pr * 0.52, pr - pr * 0.05, pr, pr + pr * 0.55);
+    g.generateTexture('powerupLife', pr * 2, pr * 2);
+
+    g.clear();
+    g.fillStyle(0x4fc3f7, 0.5);
+    g.fillCircle(PLAYER_RADIUS + 6, PLAYER_RADIUS + 6, PLAYER_RADIUS + 6);
+    g.generateTexture('auraShield', (PLAYER_RADIUS + 6) * 2, (PLAYER_RADIUS + 6) * 2);
+
+    g.clear();
+    g.fillStyle(0xffb74d, 0.6);
+    g.fillCircle(PLAYER_RADIUS + 8, PLAYER_RADIUS + 8, PLAYER_RADIUS + 8);
+    g.generateTexture('auraJump', (PLAYER_RADIUS + 8) * 2, (PLAYER_RADIUS + 8) * 2);
 
     g.destroy();
   }
@@ -255,6 +377,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.maybeAddBomb(this.spawnCursor + gap / 2, height, belowX);
+    this.maybeSpawnPowerups(height, plat);
   }
 
   maybeAddBomb(y, height, belowX) {
@@ -278,7 +401,123 @@ export default class GameScene extends Phaser.Scene {
     this.bombs.create(x, y, 'bomb').setDepth(3);
   }
 
-  onBomb() {
+  // Spawns one powerup of each type whenever a scheduled height threshold is crossed.
+  maybeSpawnPowerups(height, plat) {
+    const y = plat.y - POWERUP_FLOAT;
+    while (height >= this.nextShieldAt) {
+      this.spawnPowerup(plat.x, y, 'shield');
+      this.nextShieldAt += SHIELD_EVERY;
+    }
+    while (height >= this.nextSuperJumpAt) {
+      this.spawnPowerup(plat.x, y, 'superjump');
+      this.nextSuperJumpAt += SUPER_JUMP_EVERY;
+    }
+    while (height >= this.nextExtraLifeAt) {
+      this.spawnPowerup(plat.x, y, 'life');
+      this.nextExtraLifeAt += EXTRA_LIFE_EVERY;
+    }
+  }
+
+  spawnPowerup(x, y, type) {
+    const key =
+      type === 'shield' ? 'powerupShield' : type === 'superjump' ? 'powerupJump' : 'powerupLife';
+    const xOffset = type === 'shield' ? -16 : type === 'superjump' ? 16 : 0;
+    x = Phaser.Math.Clamp(x + xOffset, POWERUP_RADIUS + 8, GAME_WIDTH - POWERUP_RADIUS - 8);
+    const powerup = this.powerups.create(x, y, key);
+    powerup.type = type;
+    powerup.setDepth(3);
+    this.tweens.add({
+      targets: powerup,
+      scale: 1.12,
+      duration: 550,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.InOut',
+    });
+  }
+
+  onPowerup(player, powerup) {
+    this.tweens.killTweensOf(powerup);
+    if (powerup.type === 'shield') {
+      this.shield += 1;
+      this.updateShieldHud();
+      this.showFlash('SHIELD!');
+    } else if (powerup.type === 'superjump') {
+      this.triggerSuperJump();
+      this.showFlash('SUPER JUMP!');
+    } else if (powerup.type === 'life') {
+      this.extraLives += 1;
+      this.updateLifeHud();
+      this.showFlash('EXTRA LIFE!');
+    }
+    powerup.destroy();
+  }
+
+  triggerSuperJump() {
+    this.superJumpActive = true;
+    this.player.body.setMaxVelocity(MOVE_SPEED, SUPER_JUMP_VELOCITY * 1.5);
+    this.player.body.setVelocityY(-SUPER_JUMP_VELOCITY);
+    this.superAura.setVisible(true);
+  }
+
+  updateShieldHud() {
+    this.shieldHud.setVisible(this.shield > 0);
+    this.shieldCountText.setVisible(this.shield > 1).setText(`\u00d7${this.shield}`);
+    this.shieldAura.setVisible(this.shield > 0);
+  }
+
+  updateLifeHud() {
+    this.lifeHud.setVisible(this.extraLives > 0);
+    this.lifeCountText.setVisible(this.extraLives > 1).setText(`\u00d7${this.extraLives}`);
+  }
+
+  // Reusable center-of-screen feedback text.
+  showFlash(text) {
+    this.tweens.killTweensOf(this.flashText);
+    this.flashText.setText(text).setY(GAME_HEIGHT / 2).setScale(1).setAlpha(1).setVisible(true);
+    this.tweens.add({
+      targets: this.flashText,
+      y: GAME_HEIGHT / 2 - 60,
+      scale: 1.25,
+      alpha: 0,
+      duration: 900,
+      ease: 'Cubic.easeOut',
+      onComplete: () => this.flashText.setVisible(false),
+    });
+  }
+
+  // Spawns a green mini platform under the falling player to save them.
+  savePlayer() {
+    this.extraLives -= 1;
+    this.updateLifeHud();
+
+    const player = this.player;
+    const platY = player.y + PLAYER_RADIUS + PLATFORM_HEIGHT / 2 + 2;
+    const savePlat = this.platforms.create(
+      player.x,
+      platY,
+      this.ensurePlatformTexture('green', SAVE_PLATFORM_WIDTH)
+    );
+    savePlat.setDepth(2);
+    savePlat.uses = Infinity;
+    savePlat.platformWidth = SAVE_PLATFORM_WIDTH;
+    savePlat.body.setBounceX(1);
+
+    player.body.setVelocityY(-JUMP_VELOCITY);
+    this.showFlash('SAVED!');
+  }
+
+  onBomb(player, bomb) {
+    if (this.superJumpActive) {
+      bomb.destroy();
+      return;
+    }
+    if (this.shield > 0) {
+      this.shield -= 1;
+      this.updateShieldHud();
+      bomb.destroy();
+      return;
+    }
     this.dead = true;
     this.scene.start('GameOver', { score: this.score, startMeters: this.startMeters });
   }
@@ -286,6 +525,11 @@ export default class GameScene extends Phaser.Scene {
   onPlatform(player, platform) {
     if (player.body.touching.down) {
       player.body.setVelocityY(-JUMP_VELOCITY);
+      if (this.superJumpActive) {
+        this.superJumpActive = false;
+        player.body.setMaxVelocity(MOVE_SPEED, this.defaultMaxVY);
+        this.superAura.setVisible(false);
+      }
       this.hitPlatform(platform);
     }
   }
@@ -336,7 +580,10 @@ export default class GameScene extends Phaser.Scene {
     }
     body.setVelocityX(dir * MOVE_SPEED);
 
-    const desiredCamY = player.y - PLAYER_SCREEN_Y;
+    // Use the body's current center: the game object only receives the
+    // physics position during POST_UPDATE (after this update), so using
+    // player.y here would lag the camera one frame behind the ball.
+    const desiredCamY = player.body.center.y - PLAYER_SCREEN_Y;
     if (desiredCamY < this.camY) {
       this.camY = desiredCamY;
       this.cameras.main.setScroll(0, this.camY);
@@ -361,6 +608,19 @@ export default class GameScene extends Phaser.Scene {
         bomb.destroy();
       }
     }
+    for (const powerup of this.powerups.getChildren()) {
+      if (powerup.y > this.camY + GAME_HEIGHT + 150) {
+        this.tweens.killTweensOf(powerup);
+        powerup.destroy();
+      }
+    }
+
+    if (this.shieldAura.visible) {
+      this.shieldAura.setPosition(player.x, player.y);
+    }
+    if (this.superAura.visible) {
+      this.superAura.setPosition(player.x, player.y);
+    }
 
     const total = this.baseHeight + (this.startY - player.y);
     if (total > this.score) {
@@ -368,7 +628,10 @@ export default class GameScene extends Phaser.Scene {
       this.scoreText.setText(`Height: ${this.score} m`);
     }
 
-    if (player.y > this.camY + GAME_HEIGHT + DEATH_MARGIN) {
+    const bottom = this.camY + GAME_HEIGHT;
+    if (this.extraLives > 0 && player.y > bottom - PLAYER_RADIUS) {
+      this.savePlayer();
+    } else if (player.y > bottom + DEATH_MARGIN) {
       this.dead = true;
       this.scene.start('GameOver', { score: this.score, startMeters: this.startMeters });
     }
