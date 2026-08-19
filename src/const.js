@@ -45,13 +45,13 @@ export const POWERUP_FLOAT = 35; // floats this many px above its platform
 export const SHIELD_START = OBSTACLE_START; // 1000 m
 export const SHIELD_EVERY = 2500; // one shield per 250 m
 
-export const SUPER_JUMP_START = 0; // available from the start
+export const SUPER_JUMP_START = 500; // first appears at 50 m
 export const SUPER_JUMP_EVERY = 4500; // one super jump per 450 m
 export const SUPER_JUMP_MULTIPLIER = 10; // x10 the base jump height
 export const SUPER_JUMP_HEIGHT = MAX_JUMP_HEIGHT * SUPER_JUMP_MULTIPLIER;
 export const SUPER_JUMP_VELOCITY = Math.round(Math.sqrt(2 * GRAVITY_Y * SUPER_JUMP_HEIGHT));
 
-export const EXTRA_LIFE_START = 0; // available from the start
+export const EXTRA_LIFE_START = 500; // first appears at 50 m
 export const EXTRA_LIFE_EVERY = 10000; // one extra life per 1000 m
 
 export const SAVE_PLATFORM_WIDTH = 55; // green mini platform spawned to save the player

@@ -41,6 +41,8 @@ import {
   PLATFORM_WEAK_START,
   ORANGE_IN_WEAK_ZONE,
 } from '../const.js';
+import { getBestBombs, setBestBombs, setBestHeight } from '../storage.js';
+import { getUnlockedIds, getAchievementById } from '../achievements.js';
 
 const CLOUD_COUNT = 8;
 
@@ -87,6 +89,8 @@ export default class GameScene extends Phaser.Scene {
     this.shield = 0;
     this.superJumpActive = false;
     this.extraLives = 0;
+    this.bombsDestroyed = 0;
+    this.unlockedIds = new Set(getUnlockedIds());
     this.nextShieldAt = SHIELD_START;
     this.nextSuperJumpAt = SUPER_JUMP_START;
     this.nextExtraLifeAt = EXTRA_LIFE_START;
@@ -184,6 +188,31 @@ export default class GameScene extends Phaser.Scene {
       .setStroke('#7a4f00', 6)
       .setDepth(11)
       .setVisible(false);
+
+    this.achievementPopup = this.add.container(w / 2, h * 0.16);
+    this.achievementPopup.add(
+      this.add.rectangle(0, 0, w - 80, 84, 0x1b4d6b, 0.95).setStrokeStyle(3, 0xffd166)
+    );
+    this.achievementPopup.add(
+      this.add
+        .text(0, -22, 'ACHIEVEMENT UNLOCKED!', {
+          fontFamily: 'Arial, sans-serif',
+          fontSize: '15px',
+          fontStyle: 'bold',
+          color: '#ffd166',
+        })
+        .setOrigin(0.5)
+    );
+    this.achievementName = this.add
+      .text(0, 6, '', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '22px',
+        fontStyle: 'bold',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    this.achievementPopup.add(this.achievementName);
+    this.achievementPopup.setDepth(20).setScrollFactor(0).setAlpha(0);
 
     this.shieldAura = this.add.image(0, 0, 'auraShield').setAlpha(0.5).setScale(1.6).setDepth(2.5).setVisible(false);
     this.superAura = this.add.image(0, 0, 'auraJump').setAlpha(0.6).setScale(2.2).setDepth(2.5).setVisible(false);
@@ -526,16 +555,56 @@ export default class GameScene extends Phaser.Scene {
   onBomb(player, bomb) {
     if (this.superJumpActive) {
       bomb.destroy();
+      this.destroyedBomb();
       return;
     }
     if (this.shield > 0) {
       this.shield -= 1;
       this.updateShieldHud();
       bomb.destroy();
+      this.destroyedBomb();
       return;
     }
     this.dead = true;
     this.scene.start('GameOver', { score: this.score, startMeters: this.startMeters });
+  }
+
+  destroyedBomb() {
+    this.bombsDestroyed += 1;
+    if (setBestBombs(this.bombsDestroyed)) {
+      this.checkAchievements();
+    }
+  }
+
+  // Pops up any achievements that have become unlocked since the run began.
+  checkAchievements() {
+    for (const id of getUnlockedIds()) {
+      if (!this.unlockedIds.has(id)) {
+        this.unlockedIds.add(id);
+        const achievement = getAchievementById(id);
+        if (achievement) {
+          this.showAchievementUnlocked(achievement.name);
+        }
+      }
+    }
+  }
+
+  showAchievementUnlocked(name) {
+    this.achievementName.setText(name);
+    this.tweens.killTweensOf(this.achievementPopup);
+    this.achievementPopup.setAlpha(1).setScale(0.85);
+    this.tweens.add({
+      targets: this.achievementPopup,
+      scale: 1,
+      duration: 220,
+      ease: 'Back.easeOut',
+    });
+    this.tweens.add({
+      targets: this.achievementPopup,
+      alpha: 0,
+      delay: 2400,
+      duration: 500,
+    });
   }
 
   onPlatform(player, platform) {
@@ -642,6 +711,11 @@ export default class GameScene extends Phaser.Scene {
     if (total > this.score) {
       this.score = Math.floor(total / 10);
       this.scoreText.setText(`Height: ${this.score} m`);
+      // Only normal playthroughs (started from 0 m) count towards the best
+      // height, which drives the menu unlocks and achievements.
+      if (this.startMeters === 0 && setBestHeight(this.score)) {
+        this.checkAchievements();
+      }
     }
 
     const bottom = this.camY + GAME_HEIGHT;
